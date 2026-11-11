@@ -1,0 +1,6 @@
+# Generic distribution defaults. Configure models in Plugins → Free Subagents.
+- insert:
+    - id: free-router
+      name: 'dsh-free-subagents'
+      config:
+        chain: []
