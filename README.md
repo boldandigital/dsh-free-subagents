@@ -7,10 +7,12 @@ Choose connected free-tier models for ordinary subagents and Agent Teams. The ma
 ## Install
 
 ```sh
-dsh plugin --profile desktop add dsh-free-subagents
+dsh plugin --profile web add dsh-free-subagents
 ```
 
-Restart the app, then open **Settings → Free Subagents** or **Plugins → Free Subagents**. Connect providers in DSH's normal Models settings first. Select a provider and model, confirm its free allocation, add it, then save.
+The plugin is a normal bundle, so any profile works — `desktop`, `web` or
+`headless`. Restart the app, then open **Settings → Free Subagents** or
+**Plugins → Free Subagents**. Connect providers in DSH's normal Models settings first. Select a provider and model, confirm its free allocation, add it, then save.
 
 This release supports OpenRouter (`:free` models only), Google and NVIDIA. Credentials, advertised models, quota and billing eligibility are separate facts. Google/NVIDIA accounts must actually use their intended free allocation; the plugin cannot inspect or change billing plans. No keys are stored by this plugin.
 
@@ -27,6 +29,13 @@ The page follows the host theme: route cards, a segmented control per task, togg
 ## Verified behaviour
 
 Every route in a reference pool was measured against the real providers, with the real profile and the real plugin - latency, reasoning characters, the exact error strings and the ledger parks that follow. The findings, including the three that surprised us (reasoning consumes the output budget, Google's free tier is 20 requests per model per day, and Gemini rejects tool declarations whose name exceeds 128 characters) are in [docs/verification.md](docs/verification.md).
+
+## What this plugin talks to
+
+- **Providers**: OpenRouter (`:free` models only), Google and NVIDIA, through DSH's own model registry and credentials service. This plugin stores no keys and reads no account data.
+- **Files**: one local ledger, `~/.dsh/data/free-router-state.json`, holding model identities, cooldowns, approximate counters and timings - no prompts, no answers.
+- **Network**: nothing beyond the model providers the pool names.
+- **Compatibility**: DSH 0.2.2-rc.1, macOS / Linux / Windows, Node 22+. Preview plugin APIs may change.
 
 ## Behavior and privacy
 
