@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.1.1
+
+Fixed how a delegated task is classified. The router read the last two user
+messages of a request, which in a child session are the injected skill
+catalogue and the time context - both host boilerplate, and the catalogue
+mentions code, coding, sources and formats. Every child was therefore
+classified as a coding task, so the configured Research, Reasoning and Quick
+preferences never took effect and all children shared one route. The task is
+now read from the instruction itself, excluding the injected context and the
+delivery note the host appends to it.
+
+Fixed the rotation that spreads child requests across the free pool. The
+router rotated the chain and then sorted it by score, and because the sort is
+stable the rotation was undone - so the cursor had no effect and the
+best-scoring route served every child. Routes now rank within a one-point band
+of each other are treated as interchangeable and rotate from one request to
+the next, while a route the user rates clearly higher still wins the first
+attempt and every route can still serve as a fallback.
+
+The delegation check no longer requires a parent session id, so a child can
+never silently fall back to the parent's paid model.
+
 ## 0.3.0
 
 Added Plugin Manager settings, connected-provider/model discovery, task preferences, live limits and per-route switches. Empty setups fail closed. Distribution defaults contain no personal selections.

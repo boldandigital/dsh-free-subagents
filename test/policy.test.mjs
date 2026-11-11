@@ -31,6 +31,49 @@ test('task preferences outrank rotation, without reading the system prompt as a 
   assert.equal(taskOf({ messages: [{ role: 'system', content: [{ type: 'text', text: 'You are a coding agent' }] }, ...prompt('Research sources for a comparison').messages] }), 'research');
 });
 
+test('the task is read from the instruction, not from the injected context', () => {
+  // The host injects these after the instruction. The skill catalogue alone
+  // mentions code, coding, sources, simple and format, so reading it would
+  // classify every child as a coding task.
+  const injected = [
+    { kind: 'agent-instructions', text: '<system-reminder>\nAgent instructions for this workspace.\n' },
+    { kind: 'runtime-context', text: 'Current runtime context. This snapshot supersedes earlier runtime-context snapshots.' },
+    { kind: 'skill-catalog', text: '<system-reminder>\nA skill for every task: sophia-code for code review, a pull request workflow, a repository guide, sources and citations, simple formats.' },
+    { kind: 'time-context', text: 'Time sampled while preparing turn 1, step 1: 2026-11-11T23:35:07+01:00[Europe/Brussels]' },
+  ];
+  // The host also appends its delivery instruction to the task, as a second
+  // text block of the same message. It mentions transcripts and reasoning.
+  const delivery = 'Your parent agent id is "session-1". Before you finish, send your result to that agent with send_message({...}). The parent shares your workspace but does not automatically receive your transcript, tool output, or reasoning.';
+  const messages = instruction => [
+    { role: 'user', content: [{ type: 'text', text: instruction }, { type: 'text', text: delivery }], source: { kind: 'user' } },
+    ...injected.map(i => ({ role: 'user', content: [{ type: 'text', text: i.text }], source: { kind: i.kind } })),
+  ];
+  assert.equal(taskOf({ messages: messages('Reply with exactly one line: "R1". No tools.') }), 'general');
+  assert.equal(taskOf({ messages: messages('Research sources for a comparison') }), 'research');
+  assert.equal(taskOf({ messages: messages('Debug this code snippet mentally') }), 'coding');
+});
+
+test('the cursor rotates comparable routes so one free quota is not spent by every child', async () => {
+  const x = engine([route('google', 'a'), route('nvidia', 'b')]);
+  const seen = [];
+  for (let i = 0; i < 4; i++) { await collect(x.adapter.stream(prompt('Debug this code'))); seen.push(x.calls.at(-1).model); }
+  assert.deepEqual(seen, ['a', 'b', 'a', 'b']);
+  assert.deepEqual([...new Set(x.calls.map(c => c.model))].sort(), ['a', 'b']);
+});
+
+test('a clearly weaker route never joins the rotation', async () => {
+  const x = engine([route('google', 'weak', { tasks: { coding: 1 } }), route('nvidia', 'strong', { tasks: { coding: 9 } })]);
+  for (let i = 0; i < 6; i++) await collect(x.adapter.stream(prompt('Debug this code')));
+  assert.deepEqual([...new Set(x.calls.map(c => c.model))], ['strong']);
+});
+
+test('a route outside the rotation still serves as the fallback when the tier fails', async () => {
+  const fail = async function* () { yield { type: 'finish', reason: { kind: 'error', failure: { code: 'QUOTA', message: 'exhausted' } } }; };
+  const x = engine([route('google', 'weak', { tasks: { coding: 1 } }), route('nvidia', 'strong', { tasks: { coding: 9 } })], { strong: fail });
+  await collect(x.adapter.stream(prompt('Debug this code')));
+  assert.deepEqual(x.calls.map(c => c.model), ['strong', 'weak']);
+});
+
 test('image and context limits exclude unsuitable routes before a provider call', async () => {
   const x = engine([route('google', 'text'), route('nvidia', 'small'), route('google', 'vision')], {}, { small: { inputModalities: ['text', 'image'], context: { contextWindow: 100 } }, vision: { inputModalities: ['text', 'image'] } });
   await collect(x.adapter.stream({ messages: [{ role: 'user', content: [{ type: 'image', data: 'hidden' }] }] }));
@@ -105,6 +148,15 @@ test('creation policy handles ordinary, resumed and Team children, leaves the pa
   const selected = await guards.get('ordinary')({}, async () => proposal);
   assert.equal(selected.maxTokens, 8192); assert.equal(proposal.maxTokens, 512000);
   assert.equal(guards.has('lead'), false);
+});
+
+test('a delegated child without a parent session still routes to the free pool', async () => {
+  const listeners = new Map(), selections = [], guards = new Map();
+  const orphan = { id: 'orphan', session: { header: { origin: 'subagent' } }, model: { select: r => selections.push(['orphan', r]) }, ctx: { on: (event, fn) => { guards.set('orphan', fn); return () => {}; } } };
+  const ctx = { llm: { registerAdapter() {} }, agents: { list: () => [orphan] }, logger: { info() {}, warn() {} }, on: (event, fn) => listeners.set(event, fn), get() {}, effect: fn => fn() };
+  apply(ctx, { chain: [route('google', 'a')], statePath: config([route('google', 'a')]).statePath });
+  assert.deepEqual(selections.map(s => s[0]), ['orphan']);
+  assert.ok(selections.every(([, s]) => s.provider === 'free-auto' && s.model === 'auto'));
 });
 
 test('shared profiles merge persistent cooldowns without overwriting another provider', async () => {

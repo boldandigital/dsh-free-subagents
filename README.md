@@ -2,6 +2,10 @@
 
 Choose connected free-tier models for ordinary subagents and Agent Teams. The main agent keeps its selected model. Task preferences, observed response time and reliability choose a route; quota failures move to another approved route before output begins.
 
+Routes that rank within one point of each other are treated as interchangeable, and the router rotates through them from one child request to the next. A route the user rates clearly higher always wins the first attempt, and any route can still serve as the fallback when the others are exhausted.
+
+The task is read from the instruction itself. The context the host injects around it — the skill catalogue, the workspace instructions, the runtime and time snapshots — is not part of the task and is ignored, so a child asked to research is not routed as if it were asked to write code.
+
 ![The Free Subagents page in the DeepSeek Harness plugin manager](docs/screenshot.png)
 
 ## Install
@@ -21,6 +25,8 @@ A fresh distribution starts with an empty pool. Empty or disabled pools block ch
 ## Controls
 
 Enable/remove routes, set General/Coding/Research/Reasoning/Quick preference strength, set route output/tool limits, and change global output/attempt/cooldown limits. Preferences are chosen as **Low**, **Medium** or **High**, which stand for the 0–10 scores the router ranks on; the current bucket is shown pressed. Preferences are heuristics, not model benchmarks. Zero maximum attempts means all eligible routes at most once.
+
+Rating several routes the same for a task puts them in the same rotation tier, so their free allocation is shared instead of one model serving every child. Rate a route lower and it drops out of that tier and becomes a fallback only.
 
 **Reasoning effort** is per route. The selector lists exactly the levels the model declares in DSH's registry, and **Provider default** sends none. A route whose model does not declare the chosen level is skipped rather than called, so an unsupported level can never break a child request. The main agent's own effort never leaks into a route that has none.
 
