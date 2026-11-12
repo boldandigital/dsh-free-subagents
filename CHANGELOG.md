@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.2
+
+Declared compatibility with DSH 0.2.2-rc.2 and later (`engines.dsh: ">=0.2.2-rc.1"`). The previous exact pin, `0.2.2-rc.1`, made the plugin manager refuse to load the bundle on a rc.2 host, so delegated children silently fell back to the parent's own model instead of the free pool. No routing behaviour changed; the plugin is verified against rc.2 with a delegated child request answered through the router in the running app.
+
 ## 0.1.1
 
 Fixed how a delegated task is classified. The router read the last two user

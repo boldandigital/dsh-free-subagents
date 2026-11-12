@@ -1,7 +1,7 @@
 {
   "name": "dsh-free-subagents",
   "description": "Route delegated subagents and Agent Teams over free-tier models: choose a pool of approved free routes once, and every child request fails over to the next free model with a persistent ledger of quota, rate-limit and timeout parks.",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "type": "module",
   "main": "lib/host.js",
   "exports": {
@@ -51,7 +51,7 @@
   },
   "engines": {
     "node": ">=22",
-    "dsh": "0.2.2-rc.1"
+    "dsh": ">=0.2.2-rc.1"
   },
   "dependencies": {
     "@deepseek-ai/schemastery": "~3.19.0"

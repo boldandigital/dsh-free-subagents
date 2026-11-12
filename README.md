@@ -41,7 +41,7 @@ Every route in a reference pool was measured against the real providers, with th
 - **Providers**: OpenRouter (`:free` models only), Google and NVIDIA, through DSH's own model registry and credentials service. This plugin stores no keys and reads no account data.
 - **Files**: one local ledger, `~/.dsh/data/free-router-state.json`, holding model identities, cooldowns, approximate counters and timings - no prompts, no answers.
 - **Network**: nothing beyond the model providers the pool names.
-- **Compatibility**: DSH 0.2.2-rc.1, macOS / Linux / Windows, Node 22+. Preview plugin APIs may change.
+- **Compatibility**: DSH 0.2.2-rc.1 and later (verified on 0.2.2-rc.2), macOS / Linux / Windows, Node 22+. Preview plugin APIs may change.
 
 ## Behavior and privacy
 
@@ -51,7 +51,7 @@ Children select `free-auto/auto` through public agent APIs. Input is never silen
 
 ## Compatibility and removal
 
-Test target: DSH 0.2.2-rc.1. Preview plugin APIs may change. This bundle edits no application files or built-in presets. Headless routing has no browser dependency. Some RC Team labels show inherited constructor options; actual child request headers identify the selected virtual model.
+Test target: DSH 0.2.2-rc.1 and later, verified on 0.2.2-rc.2. Preview plugin APIs may change. This bundle edits no application files or built-in presets. Headless routing has no browser dependency. Some RC Team labels show inherited constructor options; actual child request headers identify the selected virtual model.
 
 Disabling/uninstalling this plugin removes its enforcement and restores DSH's default child model inheritance. Finish active tasks first. Keep user settings and the ledger private. See docs/migration.md and docs/publishing.md.
 
