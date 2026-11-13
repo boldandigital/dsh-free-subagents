@@ -1,3 +1,5 @@
+[![Listed on DSH Plugin Hub](https://dsh-plugin.org/badges/listed.svg)](https://dsh-plugin.org/plugins/boldandigital/dsh-free-subagents)
+
 # Free Subagents for DeepSeek Harness
 
 Choose connected free-tier models for ordinary subagents and Agent Teams. The main agent keeps its selected model. Task preferences, observed response time and reliability choose a route; quota failures move to another approved route before output begins.
