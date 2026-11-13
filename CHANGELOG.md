@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.7
+
+The Settings page now shows the plugin's own artwork in the navigation, the
+same mark the Plugin Manager shows for the plugin row. The plugin registered a
+`settings.section` but no `settings.section.icon`, so the shell kept its
+default glyph and every plugin looked the same in the Settings list.
+
 ## 0.1.6
 
 Declared compatibility with DSH 0.2.2-rc.3 and later
