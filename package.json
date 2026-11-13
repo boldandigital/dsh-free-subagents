@@ -1,7 +1,7 @@
 {
   "name": "dsh-free-subagents",
   "description": "Route delegated subagents and Agent Teams over free-tier models: choose a pool of approved free routes once, and every child request fails over to the next free model with a persistent ledger of quota, rate-limit and timeout parks.",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "type": "module",
   "main": "lib/host.js",
   "exports": {
