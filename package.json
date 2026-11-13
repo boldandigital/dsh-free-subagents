@@ -9,7 +9,7 @@
     "./package.json": "./package.json",
     "./client": "./lib/client.js",
     "./locale/*.json": "./locale/*.json",
-    "./icon": "./icon.svg"
+    "./icon": "./assets/icon.svg"
   },
   "files": [
     "lib",
