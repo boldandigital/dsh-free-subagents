@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.6
+
+Declared compatibility with DSH 0.2.2-rc.3 and later
+(`engines.dsh: ">=0.2.2-rc.3"`). The previous range admitted rc.1, whose
+`dsh-lsp-stdio` dependency resolves differently on a rc.3 host; the plugin now
+states the release it is verified against. No routing behaviour changed.
+
 ## 0.1.5
 
 Added the DSH Plugin Hub listing badge to the README. The plugin is listed at
