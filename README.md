@@ -1,24 +1,18 @@
-[![Listed on DSH Plugin Hub](https://dsh-plugin.org/badges/listed.svg)](https://dsh-plugin.org/plugins/boldandigital/dsh-free-subagents)
-
 # Free Subagents for DeepSeek Harness
 
 Choose connected free-tier models for ordinary subagents and Agent Teams. The main agent keeps its selected model. Task preferences, observed response time and reliability choose a route; quota failures move to another approved route before output begins.
 
-Routes that rank within one point of each other are treated as interchangeable, and the router rotates through them from one child request to the next. A route the user rates clearly higher always wins the first attempt, and any route can still serve as the fallback when the others are exhausted.
+## Model Display
 
-The task is read from the instruction itself. The context the host injects around it — the skill catalogue, the workspace instructions, the runtime and time snapshots — is not part of the task and is ignored, so a child asked to research is not routed as if it were asked to write code.
+The **Free Subagents Router (automatic for subagents)** model appears in the model picker with a clarified label. Its purpose is automatic routing for subagents and Agent Teams — you do not need to select it to activate the plugin. Your normal main chat model selection is preserved for direct interactions.
 
-![The Free Subagents page in the DeepSeek Harness plugin manager](docs/screenshot.png)
-
-## Install
+## Installation
 
 ```sh
 dsh plugin --profile web add dsh-free-subagents
 ```
 
-The plugin is a normal bundle, so any profile works — `desktop`, `web` or
-`headless`. Restart the app, then open **Settings → Free Subagents** or
-**Plugins → Free Subagents**. Connect providers in DSH's normal Models settings first. Select a provider and model, confirm its free allocation, add it, then save.
+The plugin is a normal bundle, so any profile works — `desktop`, `web` or `headless`. Restart the app, then open **Settings → Free Subagents** or **Plugins → Free Subagents**. Connect providers in DSH's normal Models settings first. Select a provider and model, confirm its free allocation, add it, then save.
 
 This release supports OpenRouter (`:free` models only), Google and NVIDIA. Credentials, advertised models, quota and billing eligibility are separate facts. Google/NVIDIA accounts must actually use their intended free allocation; the plugin cannot inspect or change billing plans. No keys are stored by this plugin.
 
