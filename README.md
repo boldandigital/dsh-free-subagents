@@ -24,6 +24,15 @@ Enable/remove routes, set General/Coding/Research/Reasoning/Quick preference str
 
 Rating several routes the same for a task puts them in the same rotation tier, so their free allocation is shared instead of one model serving every child. Rate a route lower and it drops out of that tier and becomes a fallback only.
 
+**Child concurrency.** To protect free allocations, the bundle sets Harness's
+`maxActiveSubagents` to `3` on the host `subagent` entry: at most three
+simultaneous child activations per root conversation, shared by ordinary
+subagents, Agent Teams and nested children. The root agent does not consume a
+slot. This is an overrideable default. A lower limit saved in **Plugins →
+Subagent** is preserved; if you previously saved a limit above three, lower it
+to three there for this bundle's behaviour. At capacity, a new child is refused
+with `ACTIVATION_LIMIT_REACHED` until an existing child is disposed.
+
 **Reasoning effort** is per route. The selector lists exactly the levels the model declares in DSH's registry, and **Provider default** sends none. A route whose model does not declare the chosen level is skipped rather than called, so an unsupported level can never break a child request. The main agent's own effort never leaks into a route that has none.
 
 The page follows the host theme: route cards, a segmented control per task, toggle switches, status pills and one primary Save action. Save applies to subsequent calls; active calls use their starting settings. Drafts are page-local: save before leaving. Catalog refresh retains drafts. Conflicting edits are rejected; reload saved settings before trying again. User choices are saved by DSH in the profile, independently of package defaults.
@@ -37,7 +46,7 @@ Every route in a reference pool was measured against the real providers, with th
 - **Providers**: OpenRouter (`:free` models only), Google and NVIDIA, through DSH's own model registry and credentials service. This plugin stores no keys and reads no account data.
 - **Files**: one local ledger, `~/.dsh/data/free-router-state.json`, holding model identities, cooldowns, approximate counters and timings - no prompts, no answers.
 - **Network**: nothing beyond the model providers the pool names.
-- **Compatibility**: DSH 0.2.2-rc.1 and later (verified on 0.2.2-rc.2), macOS / Linux / Windows, Node 22+. Preview plugin APIs may change.
+- **Compatibility**: DSH 0.2.2-rc.3 and later (verified on 0.2.2-rc.3), macOS / Linux / Windows, Node 22+. Preview plugin APIs may change.
 
 ## Behavior and privacy
 
@@ -47,7 +56,7 @@ Children select `free-auto/auto` through public agent APIs. Input is never silen
 
 ## Compatibility and removal
 
-Test target: DSH 0.2.2-rc.1 and later, verified on 0.2.2-rc.2. Preview plugin APIs may change. This bundle edits no application files or built-in presets. Headless routing has no browser dependency. Some RC Team labels show inherited constructor options; actual child request headers identify the selected virtual model.
+Test target: DSH 0.2.2-rc.3 and later, verified on 0.2.2-rc.3. Preview plugin APIs may change. This bundle edits no application files or built-in presets. Headless routing has no browser dependency. Some RC Team labels show inherited constructor options; actual child request headers identify the selected virtual model.
 
 Disabling/uninstalling this plugin removes its enforcement and restores DSH's default child model inheritance. Finish active tasks first. Keep user settings and the ledger private. See docs/migration.md and docs/publishing.md.
 

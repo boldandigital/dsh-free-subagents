@@ -1,5 +1,30 @@
 # Changelog
 
+## 0.1.8
+
+**Three-slot child admission (Harness-native).** The bundle now sets
+`maxActiveSubagents: 3` on the host `subagent` entry, capping simultaneous
+child activations per root conversation and sharing that cap across ordinary
+subagents, Agent Teams and nested children. The root agent does not consume a
+slot. A saved user value in **Plugins → Subagent** overrides this default; a
+limit saved above three must be lowered to three to get the intended
+behaviour.
+
+**Concurrent route rotation.** Concurrent requests now reserve their starting
+rotation position before awaiting any provider work, so three simultaneous
+requests with three equally ranked eligible routes start on three different
+routes even before one finishes. Task ranking, per-route settings and quota
+fallback before output are unchanged.
+
+**Integration runner ported to DSH 0.2.2-rc.3.** `test/integration/runtime.mjs`
+uses `agentTeams.setEnabled` and `subagents.startActivation` with a top-level
+`parent`/`prompt`, holds three children, asserts the fourth gets
+`ACTIVATION_LIMIT_REACHED`, confirms a replacement starts after disposal, and
+covers fresh and forked routing with Team mode on and off while the parent
+keeps its model. A new offline `test/rotation.test.mjs` proves the concurrent
+starting-position distribution. README and docs/compatibility.md are aligned
+with `engines.dsh` (`>=0.2.2-rc.3`).
+
 ## 0.1.7
 
 The Settings page now shows the plugin's own artwork in the navigation, the

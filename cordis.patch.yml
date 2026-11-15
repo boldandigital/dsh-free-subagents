@@ -4,3 +4,12 @@
       name: 'dsh-free-subagents'
       config:
         chain: []
+
+# Harness-native child admission: at most three simultaneous child activations
+# per root conversation, shared by ordinary subagents, Agent Teams, and nested
+# children. The root agent does not consume a slot. This is an overrideable
+# package default: a lower limit saved in the profile (Plugins → Subagent) is
+# preserved, and a saved limit above three must be lowered to three there.
+- id: subagent
+  config:
+    maxActiveSubagents: 3
