@@ -4,6 +4,16 @@
       name: 'dsh-free-subagents'
       config:
         chain: []
+        # Paid fallback is pre-seeded here so every profile that installs this
+        # bundle has a ready target. It stays OFF by default - a human must arm
+        # it in Plugins → Free Subagents (which requires the matching provider's
+        # adapter to be registered in the profile, e.g. a MiniMax adapter).
+        fallback:
+          enabled: false
+          provider: minimax
+          model: MiniMax-M3.1-Flash
+          label: MiniMax M3.1 Flash
+          maxOutputTokens: 8192
 
 # Harness-native child admission: at most three simultaneous child activations
 # per root conversation, shared by ordinary subagents, Agent Teams, and nested
