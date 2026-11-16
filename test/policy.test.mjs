@@ -9,8 +9,8 @@ import { makeRouter, retryDelay, taskOf } from '../lib/router.js';
 const route = (provider, model, extra = {}) => ({ provider, model, freeTier: true, ...extra });
 const config = chain => normalizeConfig({ chain, statePath: join(mkdtempSync(join(tmpdir(), 'free-subagents-')), 'state.json') });
 const collect = async x => { const out = []; for await (const v of x) out.push(v); return out; };
-function engine(chain, behavior = {}, metadata = {}) {
-  const cfg = config(chain), calls = [];
+function engine(chain, behavior = {}, metadata = {}, extraCfg = {}) {
+  const cfg = normalizeConfig({ chain, statePath: join(mkdtempSync(join(tmpdir(), 'free-subagents-')), 'state.json'), ...extraCfg }), calls = [];
   const ctx = { logger: { warn() {} }, llm: {
     resolveModelInfo: async (provider, model) => ({ provider, id: model, inputModalities: ['text'], context: { contextWindow: 200000 }, ...metadata[model] }),
     async *stream(options) {
@@ -126,11 +126,18 @@ test('cancellation makes no provider calls and short reset hints are respected',
   assert.ok(x.ledger.entries['google/a'].until <= Date.now() + 2100);
 });
 
-test('paid, recursive and duplicate routes are rejected at plugin startup', () => {
-  assert.throws(() => config([route('minimax', 'paid')]), /unsupported/);
+test('paid, recursive and duplicate routes are rejected; local and other providers are accepted', () => {
+  // OpenRouter free routes must end in :free even when marked freeTier.
   assert.throws(() => config([route('openrouter', 'paid-model')]), /:free/);
+  // A route must still be explicitly approved as free-tier, and be well-formed.
   assert.throws(() => config([{ provider: 'google', model: 'a' }]), /approved/);
   assert.throws(() => config([route('google', 'a'), route('google', 'a')]), /duplicate/);
+  assert.throws(() => config([{ provider: 'omlx-local', freeTier: true }]), /free provider\/model/);
+  // Local and any-other free providers are valid free-pool routes with freeTier.
+  const local = config([{ provider: 'omlx-local', model: 'mlx-community/Qwen3.8-27B-4bit', freeTier: true }]);
+  assert.equal(local.chain[0].provider, 'omlx-local');
+  const mm = config([{ provider: 'minimax', model: 'MiniMax-Text-01', freeTier: true }]);
+  assert.equal(mm.chain[0].provider, 'minimax');
 });
 
 test('creation policy handles ordinary, resumed and Team children, leaves the parent alone and blocks later paid selection', async () => {
@@ -183,5 +190,74 @@ test('a route may set its own reasoning effort, and an unsupported one skips the
 test('the parent reasoning effort never leaks into a route without one', async () => {
   const x = engine([route('google', 'plain')]);
   await collect(x.adapter.stream({ ...prompt('Summarize this'), reasoningEffort: 'max' }));
+  assert.equal(x.calls[0].reasoningEffort, undefined);
+});
+
+test('a paid fallback armed but with no free routes available still answers', async () => {
+  const x = engine([route('google', 'free')], {}, { paid: { inputModalities: ['text'], context: { contextWindow: 100000 } } }, { fallback: { enabled: true, provider: 'minimax', model: 'paid', label: 'Paid' } });
+  // Park the only free route so no candidate is eligible.
+  x.ledger.park(x.cfg.chain[0], { code: 'QUOTA', message: 'exhausted' }, x.cfg);
+  const out = await collect(x.adapter.stream(prompt('Say hi')));
+  assert.deepEqual(x.calls.map(c => c.model), ['paid']);
+  assert.equal(out.at(-1).reason.kind, 'stop');
+});
+
+test('the paid fallback is NOT used when fallback is disabled (fail closed)', async () => {
+  const x = engine([route('google', 'free')], {}, { paid: { inputModalities: ['text'], context: { contextWindow: 100000 } } });
+  x.ledger.park(x.cfg.chain[0], { code: 'QUOTA', message: 'exhausted' }, x.cfg);
+  const out = await collect(x.adapter.stream(prompt('Say hi')));
+  assert.deepEqual(x.calls.map(c => c.model), []);
+  assert.equal(out.at(-1).reason.failure.code, 'QUOTA');
+  assert.match(out.at(-1).reason.failure.message, /No paid fallback/);
+});
+
+test('the paid fallback runs only after every free route has failed', async () => {
+  const fail = async function* () { yield { type: 'finish', reason: { kind: 'error', failure: { code: 'QUOTA', message: 'exhausted' } } }; };
+  const x = engine([route('google', 'a'), route('nvidia', 'b')], { a: fail, b: fail }, { paid: { inputModalities: ['text'], context: { contextWindow: 100000 } } }, { fallback: { enabled: true, provider: 'minimax', model: 'paid' } });
+  const out = await collect(x.adapter.stream(prompt('Do it')));
+  assert.deepEqual(x.calls.map(c => c.model), ['a', 'b', 'paid']);
+  assert.equal(out.at(-1).reason.kind, 'stop');
+});
+
+test('the paid fallback is not reached when a free route succeeds first', async () => {
+  const x = engine([route('google', 'a')], {}, { paid: { inputModalities: ['text'], context: { contextWindow: 100000 } } }, { fallback: { enabled: true, provider: 'minimax', model: 'paid' } });
+  await collect(x.adapter.stream(prompt('Do it')));
+  assert.deepEqual(x.calls.map(c => c.model), ['a']);
+});
+
+test('fallback attempts are recorded under a namespaced ledger key and capped separately', async () => {
+  const x = engine([route('google', 'a')], {}, { paid: { inputModalities: ['text'], context: { contextWindow: 100000 } } }, { fallback: { enabled: true, provider: 'minimax', model: 'paid', maxOutputTokens: 2048 } });
+  x.ledger.park(x.cfg.chain[0], { code: 'QUOTA', message: 'exhausted' }, x.cfg);
+  await collect(x.adapter.stream({ ...prompt('Do it'), maxTokens: 999999 }));
+  const fbCall = x.calls.find(c => c.model === 'paid');
+  assert.equal(fbCall.maxTokens, 2048);
+  assert.ok(x.ledger.stats['fallback/minimax/paid']);
+  assert.equal(x.ledger.stats['minimax/paid'], undefined, 'the fallback must not appear as a free route');
+});
+
+test('a failed paid fallback surfaces its error and trims the request', async () => {
+  const failPaid = async function* () { yield { type: 'finish', reason: { kind: 'error', failure: { code: 'SERVER', message: 'paid provider down' } } }; };
+  const x = engine([route('google', 'a')], { paid: failPaid }, { paid: { inputModalities: ['text'], context: { contextWindow: 100000 } } }, { fallback: { enabled: true, provider: 'minimax', model: 'paid' } });
+  x.ledger.park(x.cfg.chain[0], { code: 'QUOTA', message: 'exhausted' }, x.cfg);
+  const out = await collect(x.adapter.stream(prompt('Do it')));
+  assert.deepEqual(x.calls.map(c => c.model), ['paid']);
+  assert.equal(out.at(-1).reason.failure.code, 'SERVER');
+  assert.ok(x.ledger.entries['fallback/minimax/paid'], 'a failed fallback is parked under its own namespace');
+});
+
+test('an armed paid fallback is also an escape hatch when no free routes exist', async () => {
+  const x = engine([route('google', 'a')], {}, { paid: { inputModalities: ['text'], context: { contextWindow: 100000 } } }, { fallback: { enabled: true, provider: 'minimax', model: 'paid' } });
+  // Force an empty pool: disable the only route but keep the paid fallback.
+  x.cfg.chain[0].enabled = false;
+  const out = await collect(x.adapter.stream(prompt('Do it')));
+  assert.deepEqual(x.calls.map(c => c.model), ['paid']);
+  assert.equal(out.at(-1).reason.kind, 'stop');
+});
+
+test('a local model provider is a first-class free route and is dispatched', async () => {
+  const x = engine([{ provider: 'omlx-local', model: 'mlx-community/Qwen3.8-27B-4bit', freeTier: true, tasks: { general: 8 } }], {}, { 'mlx-community/Qwen3.8-27B-4bit': { inputModalities: ['text'], context: { contextWindow: 32000 } } });
+  await collect(x.adapter.stream(prompt('Say hi')));
+  assert.deepEqual(x.calls.map(c => c.model), ['mlx-community/Qwen3.8-27B-4bit']);
+  assert.equal(x.calls[0].provider, 'omlx-local');
   assert.equal(x.calls[0].reasoningEffort, undefined);
 });

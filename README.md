@@ -24,6 +24,8 @@ Enable/remove routes, set General/Coding/Research/Reasoning/Quick preference str
 
 Rating several routes the same for a task puts them in the same rotation tier, so their free allocation is shared instead of one model serving every child. Rate a route lower and it drops out of that tier and becomes a fallback only.
 
+**Local models are first-class free routes.** Add any connected provider to the pool — Google, NVIDIA, OpenRouter (`:free`), or a local model such as OMLX, Ollama, or any OpenAI-compatible server registered in DSH (e.g. `omlx-local` → `mlx-community/Qwen3.8-27B-4bit`). OpenRouter is the only provider that additionally requires the model id to end in `:free`. Everything else is accepted once you explicitly confirm a **free allocation**; the router treats local routes like any other route (rotation, cooldowns, ledger, fail-over).
+
 **Child concurrency.** To protect free allocations, the bundle sets Harness's
 `maxActiveSubagents` to `3` on the host `subagent` entry: at most three
 simultaneous child activations per root conversation, shared by ordinary
@@ -37,13 +39,21 @@ with `ACTIVATION_LIMIT_REACHED` until an existing child is disposed.
 
 The page follows the host theme: route cards, a segmented control per task, toggle switches, status pills and one primary Save action. Save applies to subsequent calls; active calls use their starting settings. Drafts are page-local: save before leaving. Catalog refresh retains drafts. Conflicting edits are rejected; reload saved settings before trying again. User choices are saved by DSH in the profile, independently of package defaults.
 
+## Paid fallback (opt-in, off by default)
+
+By default the router **fails closed**: when every approved free route is cooling down or unfit for a request, the child request fails with `QUOTA` / `NO_SUITABLE_FREE_ROUTE` rather than spending money. That remains true unless a human arms the **Paid fallback** in the settings page.
+
+When armed, the router runs **one** attempt on a chosen paid model after the entire free pool has been tried and produced nothing — it is a last resort, never a routine route. The paid model can come from **any installed provider** (MiniMax, OpenRouter paid models, Groq, Google, NVIDIA, …) and is selected from the same live catalog. It is marked **PAID** in the UI, requires a one-time "this may incur cost" confirmation, and its output is capped so a burst of exhausted free routes cannot run the paid model unbounded. Fallback attempts are recorded in the ledger under their own `fallback/<provider>/<model>` namespace, so they never collide with a free route's cooldowns. Un-arming it at any time restores the fail-closed default.
+
+The paid fallback is not used to continue a partially produced answer: if a free route already emitted content, the request fails with that route's error instead of stitching two models together.
+
 ## Verified behaviour
 
 Every route in a reference pool was measured against the real providers, with the real profile and the real plugin - latency, reasoning characters, the exact error strings and the ledger parks that follow. The findings, including the three that surprised us (reasoning consumes the output budget, Google's free tier is 20 requests per model per day, and Gemini rejects tool declarations whose name exceeds 128 characters) are in [docs/verification.md](docs/verification.md).
 
 ## What this plugin talks to
 
-- **Providers**: OpenRouter (`:free` models only), Google and NVIDIA, through DSH's own model registry and credentials service. This plugin stores no keys and reads no account data.
+- **Providers**: any provider the App can reach — OpenRouter (`:free` models only), Google, NVIDIA, and **local models** (OMLX, Ollama, any OpenAI-compatible server registered in DSH) can all sit in the **free pool**, each confirmed explicitly as free-tier. The optional **paid fallback** may also target any installed provider. This plugin stores no keys and reads no account data.
 - **Files**: one local ledger, `~/.dsh/data/free-router-state.json`, holding model identities, cooldowns, approximate counters and timings - no prompts, no answers.
 - **Network**: nothing beyond the model providers the pool names.
 - **Compatibility**: DSH 0.2.2-rc.3 and later (verified on 0.2.2-rc.3), macOS / Linux / Windows, Node 22+. Preview plugin APIs may change.

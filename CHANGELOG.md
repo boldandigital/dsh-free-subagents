@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.1.9
+
+**Opt-in paid fallback.** A new **Paid fallback** panel in Plugins → Free
+Subagents lets a human arm a single paid model from any installed provider.
+After the entire free pool has been tried and produced nothing, the router
+runs one attempt on that model instead of failing closed. Off by default,
+so an operator who touches nothing keeps the previous fail-closed behaviour.
+Arming requires an explicit cost confirmation; the fallback output is capped
+and its attempts are recorded under a `fallback/<provider>/<model>` ledger
+namespace so they never collide with free-route cooldowns. A partial answer
+is never continued by the paid model.
+
+**Local models as free routes.** The free pool is no longer limited to
+OpenRouter/Google/NVIDIA: any connected provider — including local models like
+OMLX, Ollama, or any OpenAI-compatible server registered in DSH — can be added
+as an ordinary free route once confirmed as free-tier. OpenRouter remains the
+only provider whose free routes must additionally end in `:free`. Local routes
+get full rotation, cooldowns, ledger and fail-over treatment.
+
 ## 0.1.8
 
 **Three-slot child admission (Harness-native).** The bundle now sets
