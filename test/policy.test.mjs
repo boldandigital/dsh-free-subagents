@@ -245,6 +245,42 @@ test('a failed paid fallback surfaces its error and trims the request', async ()
   assert.ok(x.ledger.entries['fallback/minimax/paid'], 'a failed fallback is parked under its own namespace');
 });
 
+test('MiniMax Token Plan rate limit (error 2062) is classified as PLAN_QUOTA and parks the fallback', async () => {
+  const failPlan = async function* () { yield { type: 'finish', reason: { kind: 'error', failure: { code: 2062, message: 'Token Plan rate limit reached: Upgrade your Token Plan or switch to pay-as-you-go API usage. (2062)' } } }; };
+  const x = engine([route('google', 'a')], { 'MiniMax-M3.1-Flash': failPlan }, { 'MiniMax-M3.1-Flash': { inputModalities: ['text'], context: { contextWindow: 100000 } } }, { fallback: { enabled: true, provider: 'minimax', model: 'MiniMax-M3.1-Flash' } });
+  x.ledger.park(x.cfg.chain[0], { code: 'QUOTA', message: 'exhausted' }, x.cfg);
+  const out = await collect(x.adapter.stream(prompt('Do it')));
+  assert.deepEqual(x.calls.map(c => c.model), ['MiniMax-M3.1-Flash']);
+  assert.equal(out.at(-1).reason.failure.code, 'PLAN_QUOTA');
+  assert.ok(x.ledger.entries['fallback/minimax/MiniMax-M3.1-Flash'], 'MiniMax Token Plan exhaustion parks the fallback');
+});
+
+test('MiniMax Token Plan rate limit by message pattern also parks the fallback', async () => {
+  const failPlan = async function* () { yield { type: 'finish', reason: { kind: 'error', failure: { code: 'SERVER', message: 'Token Plan rate limit reached: Upgrade your Token Plan (2062)' } } }; };
+  const x = engine([route('google', 'a')], { 'MiniMax-M3.1-Flash': failPlan }, { 'MiniMax-M3.1-Flash': { inputModalities: ['text'], context: { contextWindow: 100000 } } }, { fallback: { enabled: true, provider: 'minimax', model: 'MiniMax-M3.1-Flash' } });
+  x.ledger.park(x.cfg.chain[0], { code: 'QUOTA', message: 'exhausted' }, x.cfg);
+  const out = await collect(x.adapter.stream(prompt('Do it')));
+  assert.equal(out.at(-1).reason.failure.code, 'PLAN_QUOTA');
+  assert.ok(x.ledger.entries['fallback/minimax/MiniMax-M3.1-Flash']);
+});
+
+test('the paid fallback applies its own reasoning level to the request', async () => {
+  const x = engine([route('google', 'a')], {}, { paid: { inputModalities: ['text'], context: { contextWindow: 100000 }, reasoning: { efforts: [{ id: 'low' }, { id: 'high' }] } } }, { fallback: { enabled: true, provider: 'minimax', model: 'paid', reasoningEffort: 'high' } });
+  x.ledger.park(x.cfg.chain[0], { code: 'QUOTA', message: 'exhausted' }, x.cfg);
+  await collect(x.adapter.stream(prompt('Do it')));
+  assert.equal(x.calls.at(-1).model, 'paid');
+  assert.equal(x.calls.at(-1).reasoningEffort, 'high', 'the fallback sends its own reasoning level');
+});
+
+test('a paid fallback that cannot use its reasoning level fails instead of calling the model', async () => {
+  const x = engine([route('google', 'a')], {}, { paid: { inputModalities: ['text'], context: { contextWindow: 100000 }, reasoning: { efforts: [{ id: 'low' }] } } }, { fallback: { enabled: true, provider: 'minimax', model: 'paid', reasoningEffort: 'high' } });
+  x.ledger.park(x.cfg.chain[0], { code: 'QUOTA', message: 'exhausted' }, x.cfg);
+  const out = await collect(x.adapter.stream(prompt('Do it')));
+  assert.equal(x.calls.length, 0, 'an unusable reasoning level must not reach the provider');
+  assert.equal(out.at(-1).reason.failure.code, 'NO_SUITABLE_FREE_ROUTE');
+  assert.match(out.at(-1).reason.failure.message, /reasoning effort high/);
+});
+
 test('an armed paid fallback is also an escape hatch when no free routes exist', async () => {
   const x = engine([route('google', 'a')], {}, { paid: { inputModalities: ['text'], context: { contextWindow: 100000 } } }, { fallback: { enabled: true, provider: 'minimax', model: 'paid' } });
   // Force an empty pool: disable the only route but keep the paid fallback.

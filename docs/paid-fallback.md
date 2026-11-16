@@ -29,9 +29,13 @@ The **Paid fallback** panel:
 1. Pick a provider from **any installed provider** (the picker is not restricted
    to OpenRouter/Google/NVIDIA).
 2. Pick a model from that provider's live catalog.
-3. Set an optional **max output tokens** cap for the fallback.
-4. Tick **"I confirm this uses a paid / token-plan allocation"**.
-5. Flip the toggle on.
+3. Optionally pin a **reasoning level** for the fallback. The options are the
+   levels that the chosen model actually reports; "Provider default" leaves the
+   level unset. A level the model cannot serve fails the request rather than
+   being ignored, so changing the model clears a stale level.
+4. Set an optional **max output tokens** cap for the fallback.
+5. Tick **"I confirm this uses a paid / token-plan allocation"**.
+6. Flip the toggle on.
 
 The toggle is disabled until the confirm box is ticked, so arming always passes
 an explicit human consent step. Un-toggling at any time restores fail-closed.
@@ -71,6 +75,9 @@ Validation rules (`lib/config.js` / `lib/config-schema.js`):
   otherwise.
 - The fallback cannot route through the router's own `free-auto` provider.
 - An invalid `maxOutputTokens` (< 1) is rejected.
+- A `reasoningEffort` the paid model does not report is not downgraded: the
+  fallback attempt fails with `NO_SUITABLE_FREE_ROUTE` and no paid call is
+  made.
 
 ## Privacy
 

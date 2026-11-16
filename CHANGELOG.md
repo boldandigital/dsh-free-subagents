@@ -12,6 +12,18 @@ and its attempts are recorded under a `fallback/<provider>/<model>` ledger
 namespace so they never collide with free-route cooldowns. A partial answer
 is never continued by the paid model.
 
+**A reasoning level for the paid fallback.** The fallback can now pin its own
+reasoning effort, the same way a free route can. The picker offers the levels
+the chosen paid model actually reports, with "Provider default" as the unset
+choice; changing the fallback provider or model clears a level the new model
+cannot serve. A level the model does not support fails the request with
+`NO_SUITABLE_FREE_ROUTE` instead of being silently ignored or downgraded.
+
+**MiniMax Token Plan exhaustion is a park, not a crash.** A provider error 2062
+("Token Plan rate limit reached") is classified as `PLAN_QUOTA` and parks the
+route under the normal quota cooldown, whether it arrives as a thrown error or
+as a terminal provider chunk.
+
 **Local models as free routes.** The free pool is no longer limited to
 OpenRouter/Google/NVIDIA: any connected provider — including local models like
 OMLX, Ollama, or any OpenAI-compatible server registered in DSH — can be added
